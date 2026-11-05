@@ -98,7 +98,6 @@ HEADING_FONT_PATH = os.path.join(ASSETS_DIR, 'fonts', 'header.ttf')
 # Card color RGB values
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
-GRAY = (180, 180, 180)
 DARK = (39, 39, 39)
 SECTION_LIGHT = (236, 236, 236)
 SECTION_DARK = (54, 54, 54)

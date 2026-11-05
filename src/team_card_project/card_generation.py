@@ -244,8 +244,8 @@ def make_stat_component(name: str, value: str, percentile: int, width: int, heig
     # The percentile is drawn at the larger size too, so its stroke can be a fraction of a pixel
     percentile_font_large = ImageFont.truetype(BASIC_FONT_PATH, percentile_font.size * scale)
     dot_draw.text(
-        (dot_x * scale, bar_center_y * scale), percentile_str, font=percentile_font_large, fill=text_color + (255,), anchor='mm',
-        stroke_width=round(STAT_PERCENTILE_STROKE * scale), stroke_fill=text_color + (255,),
+        (dot_x * scale, bar_center_y * scale), percentile_str, font=percentile_font_large, fill=constants.WHITE + (255,), anchor='mm',
+        stroke_width=round(STAT_PERCENTILE_STROKE * scale), stroke_fill=constants.WHITE + (255,),
     )
     shapes = shapes.resize((width, height), Image.Resampling.BOX)
     stat_component.paste(shapes, (0, 0), shapes)
@@ -408,9 +408,10 @@ def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width:
         rate = float(team_row[name])
         if kind == 'time':
             total_seconds = round(abs(rate) * 60)
-            value = f"{'-' if rate < 0 and total_seconds else '+'}{total_seconds // 60}:{total_seconds % 60:02d}"
+            sign = '' if total_seconds == 0 else '-' if rate < 0 else '+'
+            value = f'{sign}{total_seconds // 60}:{total_seconds % 60:02d}'
         elif kind == 'signed':
-            value = f'{rate:+.2f}'
+            value = ch.format_signed(rate)
         else:
             value = f'{rate:.2f}'
         percentile = int(team_row[f'{name} Percentile'])
@@ -420,12 +421,11 @@ def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width:
     return group_section
 
 
-def make_branding_section(team_row: pd.Series, mode: str = 'light') -> Image:
+def make_branding_section(mode: str = 'light') -> Image:
     """
     Creates the branding section Image for a team card. The branding section contains the data notes on the left (wrapping before they reach the website and
     socials), my website and socials stacked to the left of the logo, and the logo on the right.
 
-    :param team_row: A Series containing team data
     :param mode: A str determining the style of card ('light' or 'dark')
     :return: An Image of branding section
     """
@@ -474,7 +474,7 @@ def make_branding_section(team_row: pd.Series, mode: str = 'light') -> Image:
 
     # Data notes text (wraps before the website and socials)
     data_notes = (
-        'Data is 5v5 and adjusted to a per 60 minute rate (or per 2 minute rate for special teams) unless otherwise stated. '
+        'Data is 5v5 (unless stated otherwise) and adjusted to a per 60 minute rate (or per 2 minute rate for special teams). '
         'Percentiles compare all teams in the league. '
         f'All data and images from the NHL. Updated {update_date}.'
     )
@@ -572,7 +572,7 @@ def make_team_card(team: str, season: str, mode: str = 'light', save: bool = Tru
         group_x += width + spacing
 
     # Add branding section
-    branding_section = make_branding_section(team_row, mode)
+    branding_section = make_branding_section(mode)
     branding_y = groups_y + stat_section_height + spacing
     ch.paste_rounded(team_card, branding_section, (margin, branding_y), radius, corners=(False, False, True, True))
 

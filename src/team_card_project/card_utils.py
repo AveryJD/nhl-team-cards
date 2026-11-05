@@ -66,6 +66,17 @@ def draw_righted_text(
     draw.text((x_position, y_position), str(text), font=font, fill=fill)
 
 
+def format_signed(value: float) -> str:
+    """
+    Format a number to two decimals with a + or - sign (zero gets no sign, so -0.00 and +0.00 both become 0.00).
+
+    :param value: A float to format
+    :return: A str of the formatted value
+    """
+    text = f'{value:+.2f}'
+    return '0.00' if float(text) == 0 else text
+
+
 def get_ordinal(number: int) -> str:
     """
     Return a number with its ordinal suffix (Ex: 1 -> 1st, 22 -> 22nd, 113 -> 113th).
