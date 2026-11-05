@@ -4,13 +4,9 @@
 
 # Imports
 import pandas as pd
-import matplotlib.pyplot as plt
+import numpy as np
 from PIL import Image, ImageDraw, ImageFont
-import io
-import os
 from team_card_project import constants
-from team_card_project import data_io
-
 
 DATA_DIR = constants.DATA_DIR
 
@@ -70,86 +66,155 @@ def draw_righted_text(
     draw.text((x_position, y_position), str(text), font=font, fill=fill)
 
 
-def plot_to_image(fig: plt.Figure) -> Image:
+def get_ordinal(number: int) -> str:
     """
-    Change a matplotlib plot into a PIL image.
+    Return a number with its ordinal suffix (Ex: 1 -> 1st, 22 -> 22nd, 113 -> 113th).
 
-    :param fig: A Matplotlib plot to be turned into an image
-    :return: A PIL image of the plot
+    :param number: An int to add the suffix to
+    :return: A str of the number with its suffix
     """
-
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=200)
-    buf.seek(0)
-    img = Image.open(buf)
-
-    return img
-
-
-def get_percentile_color(percentile: int) -> tuple[int, int, int]:
-    """
-    Return an RGB color based on the percentile rank.
-    0%   -> Red (255, 0, 0)
-    25%  -> Orange (255, 165, 0)
-    50%  -> Yellow (255, 255, 0)
-    75%  -> Light Green (144, 238, 144)
-    100% -> Dark Green (0, 128, 0)
-
-    :param percentile: An int of the percentile to return the color for
-    :return: A tuple containing normalized RGB values that correspond to the given percentile
-    """
-    if percentile <= 25:
-        # Get color between red (255,0,0) and orange (255,165,0)
-        ratio = percentile / 25
-        r = 255
-        g = int(165 * ratio)
-        b = 0
-    elif percentile <= 50:
-        # Get color between orange (255,165,0) and yellow (255,255,0)
-        ratio = (percentile - 25) / 25
-        r = 255
-        g = 165 + int(90 * ratio)
-        b = 0
-    elif percentile <= 75:
-        # Get color between yellow (255,255,0) and light green (144,238,144)
-        ratio = (percentile - 50) / 25
-        r = 255 - int((255 - 144) * ratio)
-        g = 255 - int((255 - 238) * ratio)
-        b = int(144 * ratio)
+    if 10 <= number % 100 <= 20:
+        suffix = 'th'
     else:
-        # Get color between light green (144,238,144) and dark green (0,128,0)
-        ratio = (percentile - 75) / 25
-        r = 144 - int(144 * ratio)
-        g = 238 - int((238 - 128) * ratio)
-        b = 144 - int(144 * ratio)
+        suffix = {1: 'st', 2: 'nd', 3: 'rd'}.get(number % 10, 'th')
 
-    color = (r, g, b)
-    return color
+    result = f'{number}{suffix}'
+    return result
 
 
-def get_team_seasons_srs(team, cur_season, seasons_num: int = 5):
+def get_gradient_colors(fractions: np.ndarray) -> np.ndarray:
     """
-    Get a team's SRS ratings from the current season and previous seasons.
+    Return the colors of the stat bar gradient (red to purple to blue) at places along the bar. The red and blue ends hold their full color for a
+    stretch before blending toward purple.
 
-    :param team: Team abbreviation or name
-    :param cur_season: Current season string ('YYYY-YYYY')
-    :param seasons_num: Number of seasons to collect
-    :return: A list of SRS ratings across seasons
+    :param fractions: An array of places along the bar, from 0 (the left end) to 1 (the right end)
+    :return: An array of RGB colors, one per place
     """
-    seasons_srs = []
+    red, purple, blue = constants.STAT_GRADIENT_COLORS
+    solid = constants.STAT_GRADIENT_SOLID_FRACTION
+    colors = np.array([red, red, purple, blue, blue], dtype=float)
+    positions = np.array([0, solid, 0.5, 1 - solid, 1])
+    result = np.stack([np.interp(fractions, positions, colors[:, channel]) for channel in range(3)], axis=-1)
+    return result
 
-    for _ in range(seasons_num):
-        srs_file_path = os.path.join(DATA_DIR, "team_card_data", cur_season, "results", f"{cur_season}_srs.csv")
 
-        srs_df = pd.read_csv(srs_file_path)
+def make_gradient_bar(width: int, height: int) -> Image.Image:
+    """
+    Make a pill shaped bar that goes from red to purple to blue (the colours used on the website).
 
-        team_srs = srs_df.loc[srs_df["Team"] == team, "SRS Rating"].iloc[0]
-        if team == 'ARI' and team_srs is None:
-            team = 'PHX'
-            team_srs = srs_df.loc[srs_df["Team"] == team, "SRS Rating"].iloc[0]
+    :param width: An int of the bar's width in pixels
+    :param height: An int of the bar's height in pixels
+    :return: An RGBA image of the gradient bar
+    """
+    gradient = get_gradient_colors(np.linspace(0, 1, width)).astype(np.uint8)
+    gradient = np.repeat(gradient[np.newaxis, :, :], height, axis=0)
+    bar = Image.fromarray(gradient, 'RGB').convert('RGBA')
 
-        seasons_srs.append(team_srs)
+    mask = Image.new('L', (width, height), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (width - 1, height - 1)], radius=height // 2, fill=255)
+    bar.putalpha(mask)
 
-        cur_season = data_io.get_prev_season(cur_season)
+    return bar
 
-    return seasons_srs
+
+def paste_rounded(
+        card: Image.Image,
+        section: Image.Image,
+        position: tuple[int, int],
+        radius: int,
+        corners: tuple[bool, bool, bool, bool] = (True, True, True, True),
+    ) -> None:
+    """
+    Paste a section onto the card with rounded corners (any corner can be left square).
+
+    :param card: The card image the section is pasted onto
+    :param section: The section image to paste
+    :param position: A tuple of the (x, y) position of the section's top left corner
+    :param radius: An int of the corner radius in pixels
+    :param corners: A tuple of whether the top left, top right, bottom right, and bottom left corners are rounded (default is all of them)
+    :return: None
+    """
+    scale = 4
+    mask = Image.new('L', (section.width * scale, section.height * scale), 0)
+    ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (mask.width - 1, mask.height - 1)], radius=radius * scale, fill=255, corners=corners)
+    mask = mask.resize(section.size, Image.Resampling.BOX)
+
+    card.paste(section, position, mask)
+
+
+def draw_line_chart(
+        card_image: Image.Image,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        x_values: list,
+        y_values: list,
+        x_range: tuple[float, float],
+        y_range: tuple[float, float],
+        y_ticks: list,
+        line_color: tuple[int, int, int],
+        grid_color: tuple[int, int, int],
+        line_width: int,
+        dot_radius: int = 0,
+        last_dot_radius: int = 0,
+        invert_y: bool = False,
+    ) -> tuple[callable, callable]:
+    """
+    Draw a line chart with a faint line at each y tick. A y value of None leaves a gap in the line.
+
+    :param card_image: The image the chart is drawn onto
+    :param x: An int of the chart's left edge
+    :param y: An int of the chart's top edge
+    :param width: An int of the chart's width in pixels
+    :param height: An int of the chart's height in pixels
+    :param x_values: A list of the x value of each point
+    :param y_values: A list of the y value of each point (None for no point)
+    :param x_range: A tuple of the x values at the left and right edges of the chart
+    :param y_range: A tuple of the y values at the bottom and top edges of the chart
+    :param y_ticks: A list of the y values to draw a faint line at
+    :param line_color: A tuple of rgb values for the line and dots
+    :param grid_color: A tuple of rgb values for the faint lines
+    :param line_width: An int of the line's width in pixels
+    :param dot_radius: An int of the radius of the dot at every point (default is no dots)
+    :param last_dot_radius: An int of the radius of the dot at the last point (default is none)
+    :param invert_y: Whether the lowest y value is at the top of the chart (Ex: for ranks)
+    :return: A tuple of functions that give the x and y position on the card image for an x and a y value
+    """
+    scale = 4
+    layer = Image.new('RGBA', (width * scale, height * scale), (0, 0, 0, 0))
+    layer_draw = ImageDraw.Draw(layer)
+
+    y_low, y_high = y_range
+    x_low, x_high = x_range
+    to_x = lambda value: (value - x_low) / (x_high - x_low) * width
+    if invert_y:
+        to_y = lambda value: (value - y_low) / (y_high - y_low) * height
+    else:
+        to_y = lambda value: height - (value - y_low) / (y_high - y_low) * height
+
+    for tick in y_ticks:
+        layer_draw.line([(0, to_y(tick) * scale), (width * scale, to_y(tick) * scale)], fill=grid_color + (255,), width=int(2 * scale))
+
+    points = [(to_x(x_value), to_y(y_value)) if y_value is not None and not pd.isna(y_value) else None for x_value, y_value in zip(x_values, y_values)]
+    for point, next_point in zip(points, points[1:]):
+        if point is not None and next_point is not None:
+            layer_draw.line([(point[0] * scale, point[1] * scale), (next_point[0] * scale, next_point[1] * scale)], fill=line_color + (255,), width=int(line_width * scale))
+    # Round the ends of the line with dots the width of the line
+    for point in points:
+        if point is not None:
+            radius = dot_radius if dot_radius else line_width / 2
+            layer_draw.ellipse([(point[0] - radius) * scale, (point[1] - radius) * scale, (point[0] + radius) * scale, (point[1] + radius) * scale], fill=line_color + (255,))
+    last_point = next((point for point in reversed(points) if point is not None), None)
+    if last_dot_radius and last_point is not None:
+        layer_draw.ellipse(
+            [(last_point[0] - last_dot_radius) * scale, (last_point[1] - last_dot_radius) * scale,
+             (last_point[0] + last_dot_radius) * scale, (last_point[1] + last_dot_radius) * scale], fill=line_color + (255,),
+        )
+
+    layer = layer.resize((width, height), Image.Resampling.BOX)
+    card_image.paste(layer, (x, y), layer)
+
+    card_x = lambda value: x + to_x(value)
+    card_y = lambda value: y + to_y(value)
+    return card_x, card_y
