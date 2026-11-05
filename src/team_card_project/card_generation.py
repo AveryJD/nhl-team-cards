@@ -296,7 +296,7 @@ def make_elo_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
 
     # Draw the Elo rating graph: the rating after each game, with lines every 100 points
     elo_history = ast.literal_eval(team_row['Elo History'])
-    season_games = len(elo_history) - 1
+    season_games = constants.SEASON_GAMES[team_row['Season']]
     elo_low = min(1300, int(min(elo_history) // 100 * 100))
     elo_high = max(1700, int(-(-max(elo_history) // 100) * 100))
     elo_ticks = list(range(elo_low, elo_high + 1, 100))
