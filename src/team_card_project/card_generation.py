@@ -124,7 +124,7 @@ def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
         ('Goals Against:', f'{goals_against} ({goals_against / games_played:.2f}/GP)'),
         ('xGoals For:', f'{xgoals_for:.1f} ({xgoals_for / games_played:.2f}/GP)'),
         ('xGoals Against:', f'{xgoals_against:.1f} ({xgoals_against / games_played:.2f}/GP)'),
-        ('xGoal Share:', f'{xgoals_for / (xgoals_for + xgoals_against):.3f}'),
+        ('xGoal Share:', f'{xgoals_for / (xgoals_for + xgoals_against):.1%}'),
     ]
 
     # Create header section

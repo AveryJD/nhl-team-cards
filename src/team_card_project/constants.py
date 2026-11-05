@@ -81,13 +81,13 @@ TEAM_STAT_SECTIONS = [
         ('5v4 xGoals For', 'rate'),
         ('4v5 Goals Against', 'rate'),
         ('4v5 xGoals Against', 'rate'),
-        ('Net PIMs (Per 60 Mins)', 'time'),
+        ('Net PIMs', 'time'),
     ]),
 ]
 
 # Font sizes shared by every card (the largest that fit the longest text)
-STAT_FONT_SIZE = 54
-TITLE_FONT_SIZE = 69
+STAT_FONT_SIZE = 60
+TITLE_FONT_SIZE = 75
 BRANDING_FONT_SIZE = 38
 
 # === FONTS ===
