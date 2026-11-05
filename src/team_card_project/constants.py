@@ -50,29 +50,45 @@ ASSETS_DIR = os.path.join(DATA_DIR, 'card_data', 'assets')
 # ====================================================================================================
 
 # Date card data was updated on
-UPDATE_DATE = 'September 1, 2026'
+UPDATE_DATE = 'Sep 1, 2026'
 
 # === NAMING ===
-# Attribute names with full names (CHANGE FOR TEAMS)
-ATTRIBUTE_NAMES = {
-    'gf_rank' : 'Goals For',
-    'ga_rank' : 'Goals Against',
-    'xgf_rank' : 'xGoals For',
-    'xga_rank' : 'xGoals Against',
-    'pp_rank' : 'Power Play',
-    'pk_rank' : 'Penalty Kill',
-    'sf_rank' : 'Shots For',
-    'sa_rank' : 'Shots Against',
-    'fn_rank' : 'Finishing',
-    'gt_rank' : 'Goaltending',
-    'gf_pct_rank' : 'Goals For %',
-    'xgf_pct_rank' : 'xGoals For %',
-    'sf_pct_rank' : 'Shots For %',
-    'cf_pct_rank' : 'Corsi For %',
-    'ff_pct_rank' : 'Fenwick For %',
-    'sh_pct_rank' : 'Shooting %',
-    'sv_pct_rank' : 'Save %',
+# Symbols to be replaced in team names for the header
+SYMBOLS_TO_REPLACE = {
+    'é': 'e',
+    'É': 'E',
 }
+
+# The stat sections of the card: (title, five stats top to bottom, None leaves a slot blank). Each stat is (name shown on the card and its
+# card data column, how the value is shown: 'rate' = 2 decimals, 'signed' = 2 decimals with a sign, 'time' = +MM:SS)
+TEAM_STAT_SECTIONS = [
+    ('Offense', [
+        ('Goals For', 'rate'),
+        ('xGoals For', 'rate'),
+        ('LD Shots For', 'rate'),
+        ('MD Shots For', 'rate'),
+        ('HD Shots For', 'rate'),
+    ]),
+    ('Defense', [
+        ('Goals Against', 'rate'),
+        ('xGoals Against', 'rate'),
+        ('LD Shots Against', 'rate'),
+        ('MD Shots Against', 'rate'),
+        ('HD Shots Against', 'rate'),
+    ]),
+    ('Special Teams', [
+        ('5v4 Goals For', 'rate'),
+        ('5v4 xGoals For', 'rate'),
+        ('4v5 Goals Against', 'rate'),
+        ('4v5 xGoals Against', 'rate'),
+        ('Net PIMs (Per 60 Mins)', 'time'),
+    ]),
+]
+
+# Font sizes shared by every card (the largest that fit the longest text)
+STAT_FONT_SIZE = 54
+TITLE_FONT_SIZE = 69
+BRANDING_FONT_SIZE = 38
 
 # === FONTS ===
 BASIC_FONT_PATH = os.path.join(ASSETS_DIR, 'fonts', 'basic.ttf')
@@ -84,12 +100,13 @@ WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
 GRAY = (180, 180, 180)
 DARK = (39, 39, 39)
-GRAPH_WHITE = (255/255, 255/255, 255/255)
-GRAPH_BLACK = (0/255, 0/255, 0/255)
-GRAPH_GRAY = (180/255, 180/255, 180/255)
-GRAPH_DARK = (39/255, 39/255, 39/255)
-GRAPH_RED = (255/255, 70/255, 70/255)
-GRAPH_BLUE = (70/255, 70/255, 255/255)
+SECTION_LIGHT = (236, 236, 236)
+SECTION_DARK = (54, 54, 54)
+
+# Stat bar gradient (low to high), the same red, purple, and blue as the website
+STAT_GRADIENT_COLORS = [(255, 99, 99), (210, 110, 210), (99, 99, 255)]
+# Share of the bar at each end that stays solid red or blue
+STAT_GRADIENT_SOLID_FRACTION = 0.12
 
 # Team primary color RBG values
 PRIMARY_COLORS = {
@@ -131,7 +148,8 @@ SECONDARY_COLORS = {
 
 # Games per season
 SEASON_GAMES = {
-    '2025-2026': 82,    # Current season (max games any team has played)
+    '2026-2027': 84,    # Current season (max games any team has played)
+    '2025-2026': 82,
     '2024-2025': 82,
     '2023-2024': 82,
     '2022-2023': 82,
@@ -154,6 +172,7 @@ SEASON_GAMES = {
 
 # Teams per season
 SEASON_TEAM_NUM = {
+    '2026-2027': 32,
     '2025-2026': 32,
     '2024-2025': 32,
     '2023-2024': 32,
