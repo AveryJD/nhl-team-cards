@@ -1,7 +1,7 @@
 # NHL Team Stat Cards
 
 ## Description
-Generates visually appealing stat cards for each NHL team from prepared card data. The data collection, ratings (Elo and SRS), and card data assembly live in the separate [nhl-analytics-pipeline](https://github.com/AveryJD/nhl-analytics-pipeline) project (not currently public, but will be made available), which writes the card-ready CSV files this project reads.
+Generates visually appealing stat cards for each NHL team from prepared card data. The data collection, ratings (Elo and SRS), and card data assembly live in the separate [nhl-analytics-pipeline](https://github.com/AveryJD/nhl-analytics-pipeline) project (not currently public, but will be made available soon), which writes the card-ready CSV files this project reads.
 
 <p align="center">
   <img src="example_card.png" alt="Carolina Hurricanes Team Card" width="50%" />
