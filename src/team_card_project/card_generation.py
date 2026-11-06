@@ -305,7 +305,7 @@ def make_elo_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     ch.draw_centered_text(draw, 'Elo Rating Per Game', title_font, 24, x_center=width // 2, fill=text_color)
     elo_x, elo_y = ch.draw_line_chart(
         elo_section, elo_left, plot_top, elo_width, plot_height, list(range(len(elo_history))), elo_history,
-        x_range=(-1, season_games + 1), y_range=(elo_low - 30, elo_high + 30), y_ticks=elo_ticks,
+        x_range=(-1, season_games + 1), y_range=(elo_low - constants.GRAPH_PAD * (elo_high - elo_low), elo_high + constants.GRAPH_PAD * (elo_high - elo_low)), y_ticks=elo_ticks,
         line_color=text_color, grid_color=grid_color, line_width=5,
     )
     for tick in elo_ticks:
@@ -362,7 +362,7 @@ def make_srs_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     ch.draw_centered_text(draw, 'SRS Ranking Per Season', title_font, 24, x_center=width // 2, fill=text_color)
     srs_x, srs_y = ch.draw_line_chart(
         srs_section, srs_left, plot_top, srs_width, plot_height, list(range(len(srs_history))), srs_history,
-        x_range=(-0.5, len(srs_history) - 0.5), y_range=(1 - 1.5, total_teams + 1.5), y_ticks=srs_ticks,
+        x_range=(-0.5, len(srs_history) - 0.5), y_range=(1 - constants.GRAPH_PAD * (total_teams - 1), total_teams + constants.GRAPH_PAD * (total_teams - 1)), y_ticks=srs_ticks,
         line_color=text_color, grid_color=grid_color, line_width=6, dot_radius=14, invert_y=True,
     )
     for tick in srs_ticks:

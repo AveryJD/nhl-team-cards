@@ -90,6 +90,9 @@ STAT_FONT_SIZE = 60
 TITLE_FONT_SIZE = 75
 BRANDING_FONT_SIZE = 38
 
+# Space above and below the outer lines of the Elo and SRS graphs, as a fraction of the distance between those lines
+GRAPH_PAD = 0.06
+
 # === FONTS ===
 BASIC_FONT_PATH = os.path.join(ASSETS_DIR, 'fonts', 'basic.ttf')
 HEADING_FONT_PATH = os.path.join(ASSETS_DIR, 'fonts', 'header.ttf')
