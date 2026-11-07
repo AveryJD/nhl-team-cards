@@ -3,12 +3,110 @@
 # ====================================================================================================
 
 # Imports
+import os
+import io
 import pandas as pd
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+import cairosvg
+from PIL import Image, ImageChops, ImageDraw, ImageFont
 from team_card_project import constants
+from team_card_project import data_io
 
 DATA_DIR = constants.DATA_DIR
+
+
+def get_mode_colors(mode: str = 'light') -> dict:
+    """
+    Return the colors of a card style: the card background, the section background, the text, the grey of the stat bars, and the faint lines.
+
+    :param mode: A str determining the style of card ('light' or 'dark')
+    :return: A dict of RGB colors for 'background', 'section', 'text', 'unqualified_bar', and 'graph_grid'
+    """
+    if mode == 'light':
+        colors = {
+            'background': constants.WHITE, 'section': constants.SECTION_LIGHT, 'text': constants.BLACK, 'unqualified_bar': (190, 190, 190),
+            'graph_grid': (190, 190, 196),
+        }
+    else:
+        colors = {
+            'background': constants.DARK, 'section': constants.SECTION_DARK, 'text': constants.WHITE, 'unqualified_bar': (95, 95, 95),
+            'graph_grid': (110, 110, 116),
+        }
+
+    return colors
+
+
+def load_team_logo(team: str, mode: str, width: int) -> Image.Image:
+    """
+    Load a team's logo resized to a width (keeping its proportions).
+
+    :param team: A str of the team abbreviation ('ABC')
+    :param mode: A str determining the style of the logo ('light' or 'dark')
+    :param width: An int of the logo's width in pixels
+    :return: An RGBA image of the team logo
+    """
+    with open(os.path.join(constants.ASSETS_DIR, 'team_logos', f'{team}_{mode}.svg'), 'rb') as f:
+        svg_bytes = f.read()
+    team_logo = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg_bytes))).convert('RGBA')
+
+    logo_height = int(team_logo.height * width / team_logo.width)
+    team_logo = team_logo.resize((width, logo_height), Image.Resampling.LANCZOS)
+
+    return team_logo
+
+
+def get_centered_text_top(font: ImageFont.ImageFont, lines_num: int, line_height: int, section_height: int) -> int:
+    """
+    Return the y position to draw the first line of a block of text so the block is centered vertically in a section, measured from the top of the
+    first line's capital letters to the baseline of the last line.
+
+    :param font: An ImageFont of the text's font
+    :param lines_num: An int of how many lines the block has
+    :param line_height: An int of the distance between the lines in pixels
+    :param section_height: An int of the section's height in pixels
+    :return: An int of the y position to draw the first line at
+    """
+    cap_top, baseline = font.getbbox('H')[1], font.getbbox('H')[3]
+    block_height = (lines_num - 1) * line_height + baseline - cap_top
+    result = round((section_height - block_height) / 2 - cap_top)
+    return result
+
+
+def get_stat_component_sizes(size: str) -> dict:
+    """
+    Return the fonts and sizes of a stat component's text and bar for a size of component.
+
+    :param size: A str of the size of the component ('small' or 'large')
+    :return: A dict with the names of the 'name_font', 'value_font' and 'percentile_font' (keys of the font cache), the 'bar_height' and 'edge_pad' (the space between the
+        bar and the sides of the component), the 'bar_gap' (the space between the bottom of the stat's name and the top of its bar) and the 'percentile_stroke' (the extra stroke
+        thickness of the percentile number on the bar), all in pixels
+    """
+    sizes = {
+        'small': {'name_font': 'stat', 'value_font': 'stat', 'percentile_font': 'basic_42', 'bar_height': 46, 'edge_pad': 32, 'bar_gap': 16, 'percentile_stroke': 0.5},
+        'large': {'name_font': 'stat', 'value_font': 'stat', 'percentile_font': 'basic_58', 'bar_height': 69, 'edge_pad': 39, 'bar_gap': 16, 'percentile_stroke': 0.5},
+    }
+    return sizes[size]
+
+
+def get_team_single_season(team: str, season: str) -> pd.Series:
+    """
+    Return a Series of a team's card data for a single season.
+
+    :param team: A str of the full name of the team ('Location Name')
+    :param season: A str representing the season ('YYYY-YYYY')
+    :return: A Series containing the team's stats for the given season
+    """
+
+    # Load the season's card data
+    season_data = data_io.load_card_data_csv(season)
+
+    # Get team row
+    team_season = season_data.loc[season_data['Team'] == team].copy()
+    if team_season.empty:
+        raise ValueError(f"{team} not found in {season} card data.")
+    team_season = team_season.iloc[0]
+
+    return team_season
 
 
 def draw_centered_text(
@@ -66,17 +164,6 @@ def draw_righted_text(
     draw.text((x_position, y_position), str(text), font=font, fill=fill)
 
 
-def format_signed(value: float) -> str:
-    """
-    Format a number to two decimals with a + or - sign (zero gets no sign, so -0.00 and +0.00 both become 0.00).
-
-    :param value: A float to format
-    :return: A str of the formatted value
-    """
-    text = f'{value:+.2f}'
-    return '0.00' if float(text) == 0 else text
-
-
 def get_ordinal(number: int) -> str:
     """
     Return a number with its ordinal suffix (Ex: 1 -> 1st, 22 -> 22nd, 113 -> 113th).
@@ -93,37 +180,77 @@ def get_ordinal(number: int) -> str:
     return result
 
 
-def get_gradient_colors(fractions: np.ndarray) -> np.ndarray:
+def get_gradient_colors(fractions: np.ndarray, solid_fraction: float) -> np.ndarray:
     """
     Return the colors of the stat bar gradient (red to purple to blue) at places along the bar. The red and blue ends hold their full color for a
     stretch before blending toward purple.
 
     :param fractions: An array of places along the bar, from 0 (the left end) to 1 (the right end)
+    :param solid_fraction: A float of the share of the bar at each end that stays solid red or blue
     :return: An array of RGB colors, one per place
     """
     red, purple, blue = constants.STAT_GRADIENT_COLORS
-    solid = constants.STAT_GRADIENT_SOLID_FRACTION
+    solid = solid_fraction
     colors = np.array([red, red, purple, blue, blue], dtype=float)
     positions = np.array([0, solid, 0.5, 1 - solid, 1])
     result = np.stack([np.interp(fractions, positions, colors[:, channel]) for channel in range(3)], axis=-1)
     return result
 
 
-def make_gradient_bar(width: int, height: int) -> Image.Image:
+def make_percentile_bar(
+        width: int, height: int, fraction: float, track_color: tuple, label: str = None, label_font: ImageFont.ImageFont = None, label_stroke: int = 0,
+        *, solid_fraction: float, min_fill: float, end_hold: float, label_gap: float,
+) -> Image.Image:
     """
-    Make a pill shaped bar that goes from red to purple to blue (the colours used on the website).
+    Make a pill shaped percentile bar: a grey track filled from the left with the red to purple to blue gradient up to the percentile, with the percentile
+    written in white at the end of the fill. The smallest fill (0) is a small rounded lens, and the end of the fill holds its percentile's color for a stretch.
+    A bar with no percentile is all grey with N/A in the middle.
 
     :param width: An int of the bar's width in pixels
     :param height: An int of the bar's height in pixels
-    :return: An RGBA image of the gradient bar
+    :param fraction: A float of the percentile from 0 to 1 (None for no percentile)
+    :param track_color: An RGB tuple of the color of the unfilled part of the bar
+    :param label: A str of the percentile to write at the end of the fill
+    :param label_font: The font of the label
+    :param label_stroke: An int of the extra stroke thickness of the label in pixels
+    :param solid_fraction: A float of the share of the bar at each end of the gradient that stays solid red or blue
+    :param min_fill: A float of the smallest fill of the bar (0 percentile) as a share of the bar's height
+    :param end_hold: A float of how far the end of the fill holds its percentile's color, as a share of the bar's height
+    :param label_gap: A float of the space between the percentile number and the end of the fill, as a share of the bar's height
+    :return: An RGBA image of the percentile bar
     """
-    gradient = get_gradient_colors(np.linspace(0, 1, width)).astype(np.uint8)
-    gradient = np.repeat(gradient[np.newaxis, :, :], height, axis=0)
-    bar = Image.fromarray(gradient, 'RGB').convert('RGBA')
+    track = Image.new('L', (width, height), 0)
+    ImageDraw.Draw(track).rounded_rectangle([(0, 0), (width - 1, height - 1)], radius=height // 2, fill=255)
+    bar = Image.new('RGBA', (width, height), (0, 0, 0, 0))
+    bar.paste(Image.new('RGBA', (width, height), track_color + (255,)), (0, 0), track)
 
-    mask = Image.new('L', (width, height), 0)
-    ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (width - 1, height - 1)], radius=height // 2, fill=255)
-    bar.putalpha(mask)
+    if fraction is None:
+        label_xy, label_anchor, label = (width / 2, height / 2), 'mm', 'N/A'
+    else:
+        # The fill is a pill. One narrower than the bar is tall is a lens: the bar's rounded left end overlapped with a mirrored rounded right end
+        min_fill_width = round(min_fill * height)
+        fill_width = round(min_fill_width + fraction * (width - min_fill_width))
+        if fill_width >= height:
+            mask = Image.new('L', (fill_width, height), 0)
+            ImageDraw.Draw(mask).rounded_rectangle([(0, 0), (fill_width - 1, height - 1)], radius=height // 2, fill=255)
+        else:
+            left_end = Image.new('L', (height, height), 0)
+            ImageDraw.Draw(left_end).ellipse([(0, 0), (height - 1, height - 1)], fill=255)
+            right_end = Image.new('L', (height, height), 0)
+            ImageDraw.Draw(right_end).ellipse([(fill_width - height, 0), (fill_width - 1, height - 1)], fill=255)
+            mask = ImageChops.multiply(left_end, right_end).crop((0, 0, fill_width, height))
+
+        # The gradient is stretched so it reaches the percentile's color a stretch before the end of the fill, which holds that color
+        hold = min(end_hold * height, 0.35 * fill_width)
+        fractions = np.minimum(np.arange(fill_width) / max(fill_width - hold, 1), 1) * fraction
+        fill = np.repeat(get_gradient_colors(fractions, solid_fraction).astype(np.uint8)[np.newaxis, :, :], height, axis=0)
+        bar.paste(Image.fromarray(fill, 'RGB').convert('RGBA'), (0, 0), mask)
+        label_xy, label_anchor = (fill_width - label_gap * height, height / 2), 'rm'
+
+    if label:
+        ImageDraw.Draw(bar).text(
+            label_xy, label, font=label_font, fill=constants.WHITE + (255,), anchor=label_anchor, stroke_width=label_stroke, stroke_fill=constants.WHITE + (255,),
+        )
 
     return bar
 
