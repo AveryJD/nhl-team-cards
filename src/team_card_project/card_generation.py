@@ -6,7 +6,6 @@
 import os
 import ast
 import io
-import numpy as np
 import pandas as pd
 import cairosvg
 from PIL import Image, ImageDraw, ImageFont
@@ -23,67 +22,21 @@ HEADING_FONT_PATH = constants.HEADING_FONT_PATH
 
 FONT_CACHE = {
     'basic_34': ImageFont.truetype(BASIC_FONT_PATH, 34),
-    'basic_38': ImageFont.truetype(BASIC_FONT_PATH, 38),
     'basic_42': ImageFont.truetype(BASIC_FONT_PATH, 42),
     'basic_46': ImageFont.truetype(BASIC_FONT_PATH, 46),
     'basic_50': ImageFont.truetype(BASIC_FONT_PATH, 50),
-    'stat': ImageFont.truetype(BASIC_FONT_PATH, constants.STAT_FONT_SIZE),
-    'title': ImageFont.truetype(HEADING_FONT_PATH, constants.TITLE_FONT_SIZE),
-    'branding': ImageFont.truetype(BASIC_FONT_PATH, constants.BRANDING_FONT_SIZE),
-    'heading_96': ImageFont.truetype(HEADING_FONT_PATH, 96),
+    'stat': ImageFont.truetype(BASIC_FONT_PATH, 60),
+    'title': ImageFont.truetype(HEADING_FONT_PATH, 76),
+    'branding': ImageFont.truetype(BASIC_FONT_PATH, 41),
+    'name': ImageFont.truetype(HEADING_FONT_PATH, 108),
+    'header': ImageFont.truetype(BASIC_FONT_PATH, 60),
 }
-
-# The thickness in pixels of the ring in the section's color around a stat component's dot
-STAT_DOT_RING_WIDTH = 6
-
-# Extra stroke thickness of the percentile number in the dot
-STAT_PERCENTILE_STROKE = 0.5
-
-# The space between the bottom of a stat component's name and the top of its dot
-STAT_BAR_GAP = 16
-
-# The fonts and sizes of a stat component's text, bar, and dot
-STAT_COMPONENT_SIZE = {'name_font': 'stat', 'value_font': 'stat', 'percentile_font': 'basic_42', 'percentile_font_100': 'basic_38', 'bar_height': 24, 'dot_radius': 32}
-
-
-def get_mode_colors(mode: str = 'light') -> dict:
-    """
-    Return the colors of a card style: the card background, the section background, the text, and the faint lines and bars.
-
-    :param mode: A str determining the style of card ('light' or 'dark')
-    :return: A dict of RGB colors for 'background', 'section', 'text', and 'graph_grid'
-    """
-    if mode == 'light':
-        colors = {'background': constants.WHITE, 'section': constants.SECTION_LIGHT, 'text': constants.BLACK, 'graph_grid': (190, 190, 196)}
-    else:
-        colors = {'background': constants.DARK, 'section': constants.SECTION_DARK, 'text': constants.WHITE, 'graph_grid': (110, 110, 116)}
-
-    return colors
-
-
-def load_team_logo(team: str, mode: str, width: int) -> Image.Image:
-    """
-    Load a team's logo resized to a width (keeping its proportions).
-
-    :param team: A str of the team abbreviation ('ABC')
-    :param mode: A str determining the style of the logo ('light' or 'dark')
-    :param width: An int of the logo's width in pixels
-    :return: An RGBA image of the team logo
-    """
-    with open(os.path.join(constants.ASSETS_DIR, 'team_logos', f'{team}_{mode}.svg'), 'rb') as f:
-        svg_bytes = f.read()
-    team_logo = Image.open(io.BytesIO(cairosvg.svg2png(bytestring=svg_bytes))).convert('RGBA')
-
-    logo_height = int(team_logo.height * width / team_logo.width)
-    team_logo = team_logo.resize((width, logo_height), Image.Resampling.LANCZOS)
-
-    return team_logo
 
 
 def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
     """
     Creates the header section of a team card as a PIL Image. The header includes a team colored banner with the team's name and season, the team logo,
-    and the team's standings and season stats (with the per game rates in brackets).
+    and the team's standings and season stats (per game).
 
     :param team_row: A Series containing team data
     :param mode: A str determining the style of card ('light' or 'dark')
@@ -92,13 +45,11 @@ def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
 
     # Get basic team information
     team_name = team_row['Team']
-    for symbol, replacement in constants.SYMBOLS_TO_REPLACE.items():
-        team_name = team_name.replace(symbol, replacement)
     team_abbrev = team_row['Team Abbreviation']
     season = team_row['Season']
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
     section_color = colors['section']
     text_color = colors['text']
     primary_team_color = constants.PRIMARY_COLORS.get(team_abbrev)
@@ -115,16 +66,17 @@ def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
         ('Record:', record), ('Points:', points), ('Point %:', point_percent), ('Division Rank:', division_rank), ('League Rank:', league_rank),
     ]
 
-    # Get season stats variables
+    # Get season stats variables (per game, all situations) and the 5v5 expected goal share from the card's 5v5 rates
     games_played = int(team_row['Games Played'])
     xgoals_for, goals_for = float(team_row['Season xGoals For']), int(team_row['Season Goals For'])
     xgoals_against, goals_against = float(team_row['Season xGoals Against']), int(team_row['Season Goals Against'])
+    xgf_5v5, xga_5v5 = float(team_row['xGoals For']), float(team_row['xGoals Against'])
     season_stats_rows = [
-        ('Goals For:', f'{goals_for} ({goals_for / games_played:.2f}/GP)'),
-        ('Goals Against:', f'{goals_against} ({goals_against / games_played:.2f}/GP)'),
-        ('xGoals For:', f'{xgoals_for:.1f} ({xgoals_for / games_played:.2f}/GP)'),
-        ('xGoals Against:', f'{xgoals_against:.1f} ({xgoals_against / games_played:.2f}/GP)'),
-        ('xGoal Share:', f'{xgoals_for / (xgoals_for + xgoals_against):.1%}'),
+        ('GF/GP:', f'{goals_for / games_played:.2f}'),
+        ('GA/GP:', f'{goals_against / games_played:.2f}'),
+        ('xGF/GP:', f'{xgoals_for / games_played:.2f}'),
+        ('xGA/GP:', f'{xgoals_against / games_played:.2f}'),
+        ('5v5 xGF%:', f'{xgf_5v5 / (xgf_5v5 + xga_5v5):.1%}'),
     ]
 
     # Create header section
@@ -136,37 +88,40 @@ def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
     draw = ImageDraw.Draw(header_section)
 
     # Load fonts
-    basic_font = FONT_CACHE['basic_50']
-    heading_font = FONT_CACHE['heading_96']
+    basic_font = FONT_CACHE['header']
+    heading_font = FONT_CACHE['name']
     subheading_font = FONT_CACHE['title']
 
-    # The header is split into thirds: logo, standings, and season stats
+    # The header has the logo on the left, then the standings and the season stats
     third_width = header_section_width / 3
-    third_centers = [int(third_width * (third_num + 0.5)) for third_num in range(3)]
+    # The x position of the center of each column of header text (the logo is centered in the first third of the header)
+    third_centers = [313, 940, 1567]
     banner_height = 110
     body_height = header_section_height - banner_height
 
     # Crop the logo and scale it to fit the first third
     logo_margin = 24
-    team_logo = load_team_logo(team_abbrev, mode, 1600)
+    team_logo = ch.load_team_logo(team_abbrev, mode, 1600)
     team_logo = team_logo.crop(team_logo.getchannel('A').point(lambda value: 255 if value > 8 else 0).getbbox())
     logo_scale = min((third_width - 80) / team_logo.width, (body_height - 2 * logo_margin) / team_logo.height)
     team_logo = team_logo.resize((round(team_logo.width * logo_scale), round(team_logo.height * logo_scale)), Image.Resampling.LANCZOS)
     logo_y = banner_height + (body_height - team_logo.height) // 2
     header_section.paste(team_logo, (third_centers[0] - team_logo.width // 2, logo_y), team_logo)
 
-    # Draw banner
+    # Draw banner (the name's capital letters, with their 4 pixel drop shadow, are centered in it)
     draw.rectangle([(0, 0), (header_section_width, banner_height)], fill=primary_team_color)
+    name_cap_top, name_cap_bottom = heading_font.getbbox('H')[1], heading_font.getbbox('H')[3]
+    name_y = round((banner_height - (name_cap_bottom - name_cap_top) - 4) / 2) - name_cap_top
     # Draw team name and season drop shadow
-    draw.text(xy=(36, 10), text=team_name, font=heading_font, fill=header_shadow_color)
-    ch.draw_righted_text(draw, season, heading_font, 10, header_section_width - 44, fill=header_shadow_color)
+    draw.text(xy=(36, name_y + 4), text=team_name, font=heading_font, fill=header_shadow_color)
+    ch.draw_righted_text(draw, season, heading_font, name_y + 4, header_section_width - 44, fill=header_shadow_color)
     # Draw team name and season text
-    draw.text(xy=(40, 6), text=team_name, font=heading_font, fill=header_text_color)
-    ch.draw_righted_text(draw, season, heading_font, 6, header_section_width - 40, fill=header_text_color)
+    draw.text(xy=(40, name_y), text=team_name, font=heading_font, fill=header_text_color)
+    ch.draw_righted_text(draw, season, heading_font, name_y, header_section_width - 40, fill=header_text_color)
 
     # Row y positions
     row_pitch = 62
-    title_to_first_row = 88
+    title_to_first_row = 80
     title_cap_top = subheading_font.getbbox('H')[1]
     last_row_baseline = basic_font.getmetrics()[0]
     content_height = (title_to_first_row + 4 * row_pitch + last_row_baseline) - title_cap_top
@@ -174,91 +129,95 @@ def make_header_section(team_row: pd.Series, mode: str = 'light') -> Image:
     title_y = banner_height + edge_space - title_cap_top
     row_ys = [title_y + title_to_first_row + row_num * row_pitch for row_num in range(5)]
 
-    # Draw standings and season stats (labels right aligned, values left aligned)
+    # Draw standings and season stats (labels and values both left aligned, centered as a block)
     label_gap = 26
-    for title, rows, center_x in [('Standings', standings_rows, third_centers[1]), ('Season Stats', season_stats_rows, third_centers[2])]:
+    # Width in pixels of the widest value in the standings and season stats rows across all card data
+    standings_value_width = 151
+    season_stats_value_width = 104
+    for title, rows, center_x, value_width in [
+        ('Standings', standings_rows, third_centers[1], standings_value_width),
+        ('Season Stats', season_stats_rows, third_centers[2], season_stats_value_width),
+    ]:
         ch.draw_centered_text(draw, title, subheading_font, title_y, x_center=center_x, fill=text_color)
 
-        label_right = center_x - label_gap / 2
-        value_x = center_x + label_gap / 2
+        # Every card puts its labels and values in the same place, centered for the widest values in the data
+        label_width = max(basic_font.getlength(label) for label, _ in rows)
+        label_left = center_x - (label_width + label_gap + value_width) / 2
+        value_x = label_left + label_width + label_gap
         for row_y, (label, value) in zip(row_ys, rows):
-            ch.draw_righted_text(draw, label, basic_font, row_y, label_right, fill=text_color)
+            draw.text(xy=(label_left, row_y), text=label, font=basic_font, fill=text_color)
             draw.text(xy=(value_x, row_y), text=value, font=basic_font, fill=text_color)
 
     return header_section
 
 
-def make_stat_component(name: str, value: str, percentile: int, width: int, height: int, mode: str = 'light') -> Image:
+def make_stat_component(name: str, value: str, percentile: int, width: int, height: int, mode: str = 'light', size: str = 'small') -> Image:
     """
-    Creates a stat component: the stat name and value above a gradient bar with a dot at the team's percentile.
+    Creates a stat component: the stat name and value above a bar filled with a gradient up to the percentile (written on the bar). A stat with no percentile
+    gets a grey bar marked N/A, and a stat with no value shows N/A as its value.
 
     :param name: A str of the stat's name
-    :param value: A str of the team's value of the stat
-    :param percentile: An int of the team's percentile of the stat (100 is the best team in the league)
+    :param value: A str of the stat's value (None if it has none)
+    :param percentile: An int of the percentile of the stat (None if it has none)
     :param width: An int of the component's width in pixels
     :param height: An int of the component's height in pixels
     :param mode: A str determining the style of card ('light' or 'dark')
+    :param size: A str of the size of the component's text and bar ('small' or 'large')
     :return: An Image of the stat component
     """
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
     section_color = colors['section']
     text_color = colors['text']
 
     # Get size variables
-    name_font = FONT_CACHE[STAT_COMPONENT_SIZE['name_font']]
-    value_font = FONT_CACHE[STAT_COMPONENT_SIZE['value_font']]
-    bar_height = STAT_COMPONENT_SIZE['bar_height']
-    dot_radius = STAT_COMPONENT_SIZE['dot_radius']
-
-    # A three digit percentile (100) uses a smaller font so it fits inside the dot
-    percentile_str = str(percentile)
-    percentile_font = FONT_CACHE[STAT_COMPONENT_SIZE['percentile_font_100' if len(percentile_str) == 3 else 'percentile_font']]
+    sizes = ch.get_stat_component_sizes(size)
+    name_font = FONT_CACHE[sizes['name_font']]
+    value_font = FONT_CACHE[sizes['value_font']]
+    percentile_font = FONT_CACHE[sizes['percentile_font']]
+    bar_height = sizes['bar_height']
+    edge_pad = sizes['edge_pad']
+    bar_gap = sizes['bar_gap']
+    percentile_stroke = sizes['percentile_stroke']
+    percentile_str = None if percentile is None else str(percentile)
+    fraction = None if percentile is None else percentile / 100
 
     # Create stat component
     stat_component = Image.new("RGB", (width, height), color=section_color)
 
     # Get row y positions
     name_top = name_font.getbbox('H')[1]
-    bar_center_y = name_font.getbbox('H')[3] - name_top + STAT_BAR_GAP + dot_radius
-    bar_y = bar_center_y - bar_height // 2
+    bar_y = name_font.getbbox('H')[3] - name_top + bar_gap
     name_baseline_y = name_font.getmetrics()[0] - name_top
 
-    # Draw the bar and dot at a larger size so their edges are smooth
+    # Draw the bar at a larger size so its edges are smooth (the percentile is drawn at the larger size too, so its stroke can be a fraction of a pixel)
     scale = 4
     shapes = Image.new('RGBA', (width * scale, height * scale), (0, 0, 0, 0))
-    bar_left, bar_right = dot_radius, width - dot_radius
-    bar = ch.make_gradient_bar((bar_right - bar_left) * scale, bar_height * scale)
-    shapes.paste(bar, (bar_left * scale, bar_y * scale), bar)
-
-    # Keep the dot inside the bar's ends
-    dot_x = bar_left + dot_radius + percentile / 100 * (bar_right - bar_left - 2 * dot_radius)
-    # Fill the dot with the bar's color at its position, with a ring in the section's color
-    dot_color = tuple(int(channel) for channel in ch.get_gradient_colors(np.array([(dot_x - bar_left) / (bar_right - bar_left)]))[0])
-    dot_draw = ImageDraw.Draw(shapes)
-    for radius, fill in [(dot_radius, section_color), (dot_radius - STAT_DOT_RING_WIDTH, dot_color)]:
-        dot_draw.ellipse(
-            [((dot_x - radius) * scale, (bar_center_y - radius) * scale), ((dot_x + radius) * scale, (bar_center_y + radius) * scale)], fill=fill,
-        )
-    # The percentile is drawn at the larger size too, so its stroke can be a fraction of a pixel
+    bar_left, bar_right = edge_pad, width - edge_pad
     percentile_font_large = ImageFont.truetype(BASIC_FONT_PATH, percentile_font.size * scale)
-    dot_draw.text(
-        (dot_x * scale, bar_center_y * scale), percentile_str, font=percentile_font_large, fill=constants.WHITE + (255,), anchor='mm',
-        stroke_width=round(STAT_PERCENTILE_STROKE * scale), stroke_fill=constants.WHITE + (255,),
+    # The design of the stat bar: the share of the gradient at each end that stays solid red or blue, the smallest fill (0 percentile) as a share of the bar's height,
+    # how far the end of the fill holds its percentile's color (a share of the bar's height), and the space between the percentile number and the end of the fill (a share of the bar's height)
+    solid_fraction, min_fill, end_hold, label_gap = 0.12, 0.8, 1.2, 0.2
+    bar = ch.make_percentile_bar(
+        (bar_right - bar_left) * scale, bar_height * scale, fraction, colors['unqualified_bar'], percentile_str, percentile_font_large,
+        round(percentile_stroke * scale),
+        solid_fraction=solid_fraction, min_fill=min_fill, end_hold=end_hold, label_gap=label_gap,
     )
+    shapes.paste(bar, (bar_left * scale, bar_y * scale), bar)
+    # Scale back down (BOX avoids the halo LANCZOS leaves)
     shapes = shapes.resize((width, height), Image.Resampling.BOX)
     stat_component.paste(shapes, (0, 0), shapes)
 
     # Create draw object
     draw = ImageDraw.Draw(stat_component)
 
-    # Draw attribute name (lined up with the bar's left edge)
+    # Draw the stat's name (lined up with the bar's left edge)
     name_left_offset = draw.textbbox((0, 0), name, font=name_font)[0]
     draw.text(xy=(bar_left - name_left_offset, -name_top), text=name, font=name_font, fill=text_color)
 
     # Draw the value beside the stat name (on its baseline, ending at the right end of the bar)
-    draw.text(xy=(bar_right, name_baseline_y), text=value, font=value_font, fill=text_color, anchor='rs')
+    draw.text(xy=(bar_right, name_baseline_y), text=value or 'N/A', font=value_font, fill=text_color, anchor='rs')
 
     return stat_component
 
@@ -275,7 +234,7 @@ def make_elo_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     """
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
     text_color = colors['text']
     grid_color = colors['graph_grid']
 
@@ -296,7 +255,9 @@ def make_elo_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
 
     # Draw the Elo rating graph: the rating after each game, with lines every 100 points
     elo_history = ast.literal_eval(team_row['Elo History'])
-    season_games = constants.SEASON_GAMES[team_row['Season']]
+    season_games = team_row['Season Games']
+    # Space above and below the outer lines of the graph, as a fraction of the distance between those lines
+    graph_pad = 0.06
     elo_low = min(1300, int(min(elo_history) // 100 * 100))
     elo_high = max(1700, int(-(-max(elo_history) // 100) * 100))
     elo_ticks = list(range(elo_low, elo_high + 1, 100))
@@ -305,7 +266,7 @@ def make_elo_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     ch.draw_centered_text(draw, 'Elo Rating Per Game', title_font, 24, x_center=width // 2, fill=text_color)
     elo_x, elo_y = ch.draw_line_chart(
         elo_section, elo_left, plot_top, elo_width, plot_height, list(range(len(elo_history))), elo_history,
-        x_range=(-1, season_games + 1), y_range=(elo_low - constants.GRAPH_PAD * (elo_high - elo_low), elo_high + constants.GRAPH_PAD * (elo_high - elo_low)), y_ticks=elo_ticks,
+        x_range=(-1, season_games + 1), y_range=(elo_low - graph_pad * (elo_high - elo_low), elo_high + graph_pad * (elo_high - elo_low)), y_ticks=elo_ticks,
         line_color=text_color, grid_color=grid_color, line_width=5,
     )
     for tick in elo_ticks:
@@ -330,7 +291,7 @@ def make_srs_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     season = team_row['Season']
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
     text_color = colors['text']
     grid_color = colors['graph_grid']
 
@@ -355,14 +316,16 @@ def make_srs_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     for _ in range(len(srs_history) - 1):
         seasons.append(data_io.get_prev_season(seasons[-1]))
     seasons.reverse()
-    total_teams = constants.SEASON_TEAM_NUM.get(season, 32)
+    # Space above and below the outer lines of the graph, as a fraction of the distance between those lines
+    graph_pad = 0.06
+    total_teams = int(team_row['Season Teams'])
     srs_ticks = [1, 8, 16, 24, total_teams]
     srs_left = 40 + number_width
     srs_width = width - 40 - 40 - number_width
     ch.draw_centered_text(draw, 'SRS Ranking Per Season', title_font, 24, x_center=width // 2, fill=text_color)
     srs_x, srs_y = ch.draw_line_chart(
         srs_section, srs_left, plot_top, srs_width, plot_height, list(range(len(srs_history))), srs_history,
-        x_range=(-0.5, len(srs_history) - 0.5), y_range=(1 - constants.GRAPH_PAD * (total_teams - 1), total_teams + constants.GRAPH_PAD * (total_teams - 1)), y_ticks=srs_ticks,
+        x_range=(-0.5, len(srs_history) - 0.5), y_range=(1 - graph_pad * (total_teams - 1), total_teams + graph_pad * (total_teams - 1)), y_ticks=srs_ticks,
         line_color=text_color, grid_color=grid_color, line_width=6, dot_radius=14, invert_y=True,
     )
     for tick in srs_ticks:
@@ -373,21 +336,22 @@ def make_srs_section(team_row: pd.Series, mode: str = 'light', width: int = 925,
     return srs_section
 
 
-def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width: int, height: int, mode: str = 'light') -> Image:
+def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width: int, height: int, mode: str = 'light', component_pitch: float = None) -> Image:
     """
     Creates a section of a team card that holds a title and a column of stat components (Ex: the offense stats).
 
     :param team_row: A Series containing team data
     :param title: A str of the section's title
-    :param stats: A list of the stats to show, from top to bottom, each (name, how its value is shown) or None for a blank slot
+    :param stats: A list of the stats to show, from top to bottom, each (card data column, how its value is shown, and optionally the name to show)
     :param width: An int of the section's width in pixels
     :param height: An int of the section's height in pixels
     :param mode: A str determining the style of card ('light' or 'dark')
+    :param component_pitch: A float of the distance between stat components' tops (default spreads them evenly down the section)
     :return: An Image of the stat group section
     """
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
 
     # Create stat group section
     group_section = Image.new("RGB", (width, height), color=colors['section'])
@@ -398,24 +362,15 @@ def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width:
     # Draw title
     ch.draw_centered_text(draw, text=title, font=FONT_CACHE['title'], y_position=14, x_center=width // 2, fill=colors['text'])
 
-    # Draw stat components, spread evenly down the section (a blank slot, None, is left empty)
+    # Draw stat components, spread evenly down the section unless a pitch is given
     component_height, top_padding, bottom_padding = 130, 112, 22
-    component_pitch = (height - top_padding - bottom_padding - component_height) / (len(stats) - 1)
-    for component_num, stat in enumerate(stats):
-        if stat is None:
-            continue
-        name, kind = stat
-        rate = float(team_row[name])
-        if kind == 'time':
-            total_seconds = round(abs(rate) * 60)
-            sign = '' if total_seconds == 0 else '-' if rate < 0 else '+'
-            value = f'{sign}{total_seconds // 60}:{total_seconds % 60:02d}'
-        elif kind == 'signed':
-            value = ch.format_signed(rate)
-        else:
-            value = f'{rate:.2f}'
-        percentile = int(team_row[f'{name} Percentile'])
-        component = make_stat_component(name, value, percentile, width - 80, component_height, mode)
+    if component_pitch is None:
+        component_pitch = (height - top_padding - bottom_padding - component_height) / (len(stats) - 1)
+    for component_num, (column, kind, *label) in enumerate(stats):
+        rate = float(team_row[column])
+        value = f'{rate:.1f}%' if kind == 'percent' else f'{rate:.2f}'
+        percentile = int(team_row[f'{column} Percentile'])
+        component = make_stat_component(label[0] if label else column, value, percentile, width - 80, component_height, mode, size='small')
         group_section.paste(component, (40, top_padding + round(component_num * component_pitch)))
 
     return group_section
@@ -431,7 +386,7 @@ def make_branding_section(mode: str = 'light') -> Image:
     """
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
     section_color = colors['section']
     text_color = colors['text']
 
@@ -461,20 +416,20 @@ def make_branding_section(mode: str = 'light') -> Image:
 
     # Get the font and the line height
     basic_font = FONT_CACHE['branding']
-    line_height = round(constants.BRANDING_FONT_SIZE * 1.1)
+    line_height = round(FONT_CACHE['branding'].size * 1.1)
     text_left = 40
 
     # Website and socials text, to the left of the logo
     contact_lines = ['Website: analyticswithavery.com', 'Socials: @analyticswavery']
     contact_width = max(draw.textlength(line, font=basic_font) for line in contact_lines)
     contact_x = logo_x - 40 - contact_width
-    contact_top = get_centered_text_top(basic_font, 2, line_height, branding_section_height)
+    contact_top = ch.get_centered_text_top(basic_font, 2, line_height, branding_section_height)
     for line_num, line in enumerate(contact_lines):
         draw.text(xy=(contact_x, contact_top + line_num * line_height), text=line, font=basic_font, fill=text_color)
 
     # Data notes text (wraps before the website and socials)
     data_notes = (
-        'Data is 5v5 (unless stated otherwise) and adjusted to a per 60 minute rate (or per 2 minute rate for special teams). '
+        'Data is adjusted to a per 60 minute rate for 5v5 stats and a per 2 minute rate for special team stats. '
         'Percentiles compare all teams in the league. '
         f'All data and images from the NHL. Updated {update_date}.'
     )
@@ -486,36 +441,19 @@ def make_branding_section(mode: str = 'light') -> Image:
             lines[-1] = candidate
         else:
             lines.append(word)
-    data_top = get_centered_text_top(basic_font, len(lines), line_height, branding_section_height)
+    data_top = ch.get_centered_text_top(basic_font, len(lines), line_height, branding_section_height)
     for line_num, line in enumerate(lines):
         draw.text(xy=(text_left, data_top + line_num * line_height), text=line, font=basic_font, fill=text_color)
 
     return branding_section
 
 
-def get_centered_text_top(font: ImageFont.ImageFont, lines_num: int, line_height: int, section_height: int) -> int:
-    """
-    Return the y position to draw the first line of a block of text so the block is centered vertically in a section, measured from the top of the
-    first line's capital letters to the baseline of the last line.
-
-    :param font: An ImageFont of the text's font
-    :param lines_num: An int of how many lines the block has
-    :param line_height: An int of the distance between the lines in pixels
-    :param section_height: An int of the section's height in pixels
-    :return: An int of the y position to draw the first line at
-    """
-    cap_top, baseline = font.getbbox('H')[1], font.getbbox('H')[3]
-    block_height = (lines_num - 1) * line_height + baseline - cap_top
-    result = round((section_height - block_height) / 2 - cap_top)
-    return result
-
-
 def make_team_card(team: str, season: str, mode: str = 'light', save: bool = True) -> Image:
     """
     Create a full team card image for a given team and season.
 
-    The card has a header section, an Elo section and an SRS section side by side (the team's Elo rating and SRS rank), three stat sections (offense,
-    defense, and special teams), and a branding section.
+    The card has a header section, an Elo section and an SRS section side by side (the team's Elo rating and SRS rank), four stat sections (5v5 offense, 5v5
+    defense, and the 5v4 offense and 4v5 defense stacked in one column), and a branding section.
 
     :param team: Full team name
     :param season: Season string ('YYYY-YYYY')
@@ -525,13 +463,12 @@ def make_team_card(team: str, season: str, mode: str = 'light', save: bool = Tru
     """
 
     # Get the team's card data for the given season
-    team_season_data = data_io.load_card_data(season)
-    team_row = team_season_data[team_season_data['Team'] == team].iloc[0]
+    team_row = ch.get_team_single_season(team, season)
 
     team_abbrev = team_row['Team Abbreviation']
 
     # Get color variables
-    colors = get_mode_colors(mode)
+    colors = ch.get_mode_colors(mode)
 
     # Create team card
     card_width = 2000
@@ -560,15 +497,23 @@ def make_team_card(team: str, season: str, mode: str = 'light', save: bool = Tru
     srs_section = make_srs_section(team_row, mode, srs_width, graph_section_height)
     ch.paste_rounded(team_card, srs_section, (margin + elo_width + spacing, graph_y), radius, corners=(False, False, False, False))
 
-    # Add the three stat group sections side by side
+    # Add the three columns of stat group sections side by side (a column with more than one section stacks them)
     groups_y = graph_y + graph_section_height + spacing
     groups_width = card_width - 2 * margin
     group_x = margin
-    for group_num, (title, stats) in enumerate(constants.TEAM_STAT_SECTIONS):
-        # Split the width evenly (any leftover pixels go to the first sections)
-        width = (groups_width - 2 * spacing) // 3 + (1 if group_num < (groups_width - 2 * spacing) % 3 else 0)
-        group_section = make_stat_group_section(team_row, title, stats, width, stat_section_height, mode)
-        ch.paste_rounded(team_card, group_section, (group_x, groups_y), radius, corners=(False, False, False, False))
+    component_pitch = (stat_section_height - 112 - 22 - 130) / (max(len(stats) for column in constants.TEAM_STAT_COLUMNS for _, stats in column) - 1)
+    for column_num, column in enumerate(constants.TEAM_STAT_COLUMNS):
+        # Split the width evenly (any leftover pixels go to the first columns)
+        width = (groups_width - 2 * spacing) // 3 + (1 if column_num < (groups_width - 2 * spacing) % 3 else 0)
+        # Stacked sections keep the same component pitch as the tallest column, so their stat components line up across the card; the sections'
+        # heights fit their components (the first section takes any leftover height)
+        section_heights = [112 + (len(stats) - 1) * component_pitch + 130 + 22 for _, stats in column]
+        section_heights[0] += stat_section_height - sum(section_heights) - (len(column) - 1) * spacing
+        section_y = groups_y
+        for (title, stats), section_height in zip(column, section_heights):
+            group_section = make_stat_group_section(team_row, title, stats, width, round(section_height), mode, component_pitch)
+            ch.paste_rounded(team_card, group_section, (group_x, round(section_y)), radius, corners=(False, False, False, False))
+            section_y += section_height + spacing
         group_x += width + spacing
 
     # Add branding section
