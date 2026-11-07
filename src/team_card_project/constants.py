@@ -50,48 +50,35 @@ ASSETS_DIR = os.path.join(DATA_DIR, 'card_data', 'assets')
 # ====================================================================================================
 
 # Date card data was updated on
-UPDATE_DATE = 'Sep 1, 2026'
+UPDATE_DATE = 'September 1, 2026'
 
 # === NAMING ===
-# Symbols to be replaced in team names for the header
-SYMBOLS_TO_REPLACE = {
-    'é': 'e',
-    'É': 'E',
-}
-
-# The stat sections of the card: (title, five stats top to bottom, None leaves a slot blank). Each stat is (name shown on the card and its
-# card data column, how the value is shown: 'rate' = 2 decimals, 'signed' = 2 decimals with a sign, 'time' = +MM:SS)
-TEAM_STAT_SECTIONS = [
-    ('Offense', [
-        ('Goals For', 'rate'),
+# The stat sections of the card in columns from left to right, each column a list of sections stacked from top to bottom: (title, the stats top to bottom). Each
+# stat is (card data column, how the value is shown: 'rate' = 2 decimals, 'percent' = 1 decimal percentage, and optionally the name shown on the card if it
+# is not the column)
+TEAM_STAT_COLUMNS = [
+    [('5v5 Offense', [
         ('xGoals For', 'rate'),
-        ('LD Shots For', 'rate'),
-        ('MD Shots For', 'rate'),
-        ('HD Shots For', 'rate'),
-    ]),
-    ('Defense', [
-        ('Goals Against', 'rate'),
+        ('Goals For', 'rate'),
+        ('Shots For', 'rate'),
+        ('Shooting %', 'percent'),
+        ('Penalties Drawn', 'rate'),
+    ])],
+    [('5v5 Defense', [
         ('xGoals Against', 'rate'),
-        ('LD Shots Against', 'rate'),
-        ('MD Shots Against', 'rate'),
-        ('HD Shots Against', 'rate'),
-    ]),
-    ('Special Teams', [
-        ('5v4 Goals For', 'rate'),
-        ('5v4 xGoals For', 'rate'),
-        ('4v5 Goals Against', 'rate'),
-        ('4v5 xGoals Against', 'rate'),
-        ('Net PIMs', 'time'),
-    ]),
+        ('Goals Against', 'rate'),
+        ('Shots Against', 'rate'),
+        ('Save %', 'percent'),
+        ('Penalties Taken', 'rate'),
+    ])],
+    [('5v4 Offense', [
+        ('5v4 xGoals For', 'rate', 'xGoals For'),
+        ('5v4 Goals For', 'rate', 'Goals For'),
+    ]), ('4v5 Defense', [
+        ('4v5 xGoals Against', 'rate', 'xGoals Against'),
+        ('4v5 Goals Against', 'rate', 'Goals Against'),
+    ])],
 ]
-
-# Font sizes shared by every card (the largest that fit the longest text)
-STAT_FONT_SIZE = 60
-TITLE_FONT_SIZE = 75
-BRANDING_FONT_SIZE = 38
-
-# Space above and below the outer lines of the Elo and SRS graphs, as a fraction of the distance between those lines
-GRAPH_PAD = 0.06
 
 # === FONTS ===
 BASIC_FONT_PATH = os.path.join(ASSETS_DIR, 'fonts', 'basic.ttf')
@@ -107,8 +94,6 @@ SECTION_DARK = (54, 54, 54)
 
 # Stat bar gradient (low to high), the same red, purple, and blue as the website
 STAT_GRADIENT_COLORS = [(255, 99, 99), (210, 110, 210), (99, 99, 255)]
-# Share of the bar at each end that stays solid red or blue
-STAT_GRADIENT_SOLID_FRACTION = 0.12
 
 # Team primary color RBG values
 PRIMARY_COLORS = {
@@ -143,55 +128,3 @@ SECONDARY_COLORS = {
 }
 
 
-
-# ====================================================================================================
-# TEAMS, DIVISIONS, AND NUMBER OF GAMES PER SEASON
-# ====================================================================================================
-
-# Games per season
-SEASON_GAMES = {
-    '2026-2027': 84,    # Current season (max games any team has played)
-    '2025-2026': 82,
-    '2024-2025': 82,
-    '2023-2024': 82,
-    '2022-2023': 82,
-    '2021-2022': 82,
-    '2020-2021': 56,    # Shortened due to COVID
-    '2019-2020': 71,    # Season paused due to COVID
-    '2018-2019': 82,
-    '2017-2018': 82,
-    '2016-2017': 82,
-    '2015-2016': 82,
-    '2014-2015': 82,
-    '2013-2014': 82,
-    '2012-2013': 48,    # Shortened due to lockout
-    '2011-2012': 82,
-    '2010-2011': 82,
-    '2009-2010': 82,
-    '2008-2009': 82,
-    '2007-2008': 82
-}
-
-# Teams per season
-SEASON_TEAM_NUM = {
-    '2026-2027': 32,
-    '2025-2026': 32,
-    '2024-2025': 32,
-    '2023-2024': 32,
-    '2022-2023': 32,
-    '2021-2022': 32,    # Seattle Kraken Added
-    '2020-2021': 31,
-    '2019-2020': 31,
-    '2018-2019': 31,
-    '2017-2018': 31,    # Vegas Golden Knights Added
-    '2016-2017': 30,
-    '2015-2016': 30,
-    '2014-2015': 30,
-    '2013-2014': 30,
-    '2012-2013': 30,
-    '2011-2012': 30,
-    '2010-2011': 30,
-    '2009-2010': 30,
-    '2008-2009': 30,
-    '2007-2008': 30
-}
