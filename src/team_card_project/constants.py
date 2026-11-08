@@ -62,14 +62,14 @@ TEAM_STAT_COLUMNS = [
         ('Goals For', 'rate'),
         ('Shots For', 'rate'),
         ('Shooting %', 'percent'),
-        ('Penalties Drawn', 'rate'),
+        ('Penalty Minutes Drawn', 'rate'),
     ])],
     [('5v5 Defense', [
         ('xGoals Against', 'rate'),
         ('Goals Against', 'rate'),
         ('Shots Against', 'rate'),
         ('Save %', 'percent'),
-        ('Penalties Taken', 'rate'),
+        ('Penalty Minutes Taken', 'rate'),
     ])],
     [('5v4 Offense', [
         ('5v4 xGoals For', 'rate', 'xGoals For'),
