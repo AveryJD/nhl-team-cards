@@ -368,7 +368,14 @@ def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width:
         component_pitch = (height - top_padding - bottom_padding - component_height) / (len(stats) - 1)
     for component_num, (column, kind, *label) in enumerate(stats):
         rate = float(team_row[column])
-        value = f'{rate:.1f}%' if kind == 'percent' else f'{rate:.2f}'
+        if kind == 'percent':
+            value = f'{rate:.1f}%'
+        elif kind == 'time':
+            # Minutes (per 60) shown as MM:SS
+            total_seconds = round(rate * 60)
+            value = f'{total_seconds // 60}:{total_seconds % 60:02d}'
+        else:
+            value = f'{rate:.2f}'
         percentile = int(team_row[f'{column} Percentile'])
         component = make_stat_component(label[0] if label else column, value, percentile, width - 80, component_height, mode, size='small')
         group_section.paste(component, (40, top_padding + round(component_num * component_pitch)))

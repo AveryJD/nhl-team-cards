@@ -54,22 +54,22 @@ UPDATE_DATE = 'September 1, 2026'
 
 # === NAMING ===
 # The stat sections of the card in columns from left to right, each column a list of sections stacked from top to bottom: (title, the stats top to bottom). Each
-# stat is (card data column, how the value is shown: 'rate' = 2 decimals, 'percent' = 1 decimal percentage, and optionally the name shown on the card if it
+# stat is (card data column, how the value is shown: 'rate' = 2 decimals, 'percent' = 1 decimal percentage, 'time' = minutes shown as MM:SS, and optionally the name shown on the card if it
 # is not the column)
 TEAM_STAT_COLUMNS = [
     [('5v5 Offense', [
         ('xGoals For', 'rate'),
         ('Goals For', 'rate'),
-        ('Shots For', 'rate'),
+        ('Corsi For', 'rate'),
         ('Shooting %', 'percent'),
-        ('Penalty Minutes Drawn', 'rate'),
+        ('Penalty Minutes Drawn', 'time'),
     ])],
     [('5v5 Defense', [
         ('xGoals Against', 'rate'),
         ('Goals Against', 'rate'),
-        ('Shots Against', 'rate'),
+        ('Corsi Against', 'rate'),
         ('Save %', 'percent'),
-        ('Penalty Minutes Taken', 'rate'),
+        ('Penalty Minutes Taken', 'time'),
     ])],
     [('5v4 Offense', [
         ('5v4 xGoals For', 'rate', 'xGoals For'),
