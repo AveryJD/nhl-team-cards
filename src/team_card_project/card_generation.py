@@ -383,11 +383,12 @@ def make_stat_group_section(team_row: pd.Series, title: str, stats: list, width:
     return group_section
 
 
-def make_branding_section(mode: str = 'light') -> Image:
+def make_branding_section(season: str, mode: str = 'light') -> Image:
     """
     Creates the branding section Image for a team card. The branding section contains the data notes on the left (wrapping before they reach the website and
     socials), my website and socials stacked to the left of the logo, and the logo on the right.
 
+    :param season: A str representing the season ('YYYY-YYYY'), which decides the updated date shown
     :param mode: A str determining the style of card ('light' or 'dark')
     :return: An Image of branding section
     """
@@ -398,7 +399,7 @@ def make_branding_section(mode: str = 'light') -> Image:
     text_color = colors['text']
 
     # Get the updated date
-    update_date = constants.UPDATE_DATE
+    update_date = constants.update_date_for_season(season)
 
     # Create branding section
     branding_section_width = 1880
@@ -524,7 +525,7 @@ def make_team_card(team: str, season: str, mode: str = 'light', save: bool = Tru
         group_x += width + spacing
 
     # Add branding section
-    branding_section = make_branding_section(mode)
+    branding_section = make_branding_section(season, mode)
     branding_y = groups_y + stat_section_height + spacing
     ch.paste_rounded(team_card, branding_section, (margin, branding_y), radius, corners=(False, False, True, True))
 
